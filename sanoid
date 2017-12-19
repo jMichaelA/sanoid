@@ -350,7 +350,14 @@ sub take_snapshots {
 					# update to most current possible datestamp
 					%datestamp = get_date();
 					# print "we should have had a $type snapshot of $path $maxage seconds ago; most recent is $newestage seconds old.\n";
-					push(@newsnaps, "$path\@autosnap_$datestamp{'sortable'}_$type");
+					
+					# use zfs recursion if specified in config 
+					if ($config{$section}{'zfs_recursion'}) {
+						push(@newsnaps, "-r $path\@autosnap_$datestamp{'sortable'}_$type");
+
+					}else{
+						push(@newsnaps, "$path\@autosnap_$datestamp{'sortable'}_$type");
+					}
 				}
 			}
 		}
@@ -360,7 +367,7 @@ sub take_snapshots {
 		foreach my $snap ( @newsnaps ) {
 			if ($args{'verbose'}) { print "taking snapshot $snap\n"; }
 			if (!$args{'readonly'}) {
-				system($zfs, "snapshot", "$snap") == 0
+				system("$zfs snapshot $snap") == 0
 					or warn "CRITICAL ERROR: $zfs snapshot $snap failed, $?";
 				# make sure we don't end up with multiple snapshots with the same ctime
 				sleep 1;
@@ -658,7 +665,10 @@ sub init {
 
 		# how 'bout some recursion? =)
 		my @datasets;
-		if ($ini{$section}{'recursive'}) {
+
+		if($ini{$section}{'recursive'} =~ /zfs/i) {
+			$config{$section}{'zfs_recursion'} = 1;				
+		}elsif ($ini{$section}{'recursive'}) {
 			@datasets = getchilddatasets($config{$section}{'path'});
 			foreach my $dataset(@datasets) {
 				chomp $dataset;
